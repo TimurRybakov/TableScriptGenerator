@@ -71,3 +71,7 @@ exec [gen].[table_script] 'Test'
 >   update set
 >     d.[Value] = s.[Value];
 > ```
+
+# Installation
+
+You may use "single script\table script generator.sql" script file for fast deployment.
