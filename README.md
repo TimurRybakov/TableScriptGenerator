@@ -28,7 +28,7 @@ exec [gen].[table_script] 'select * from Test where Id < 3'
 ```
 > output
 > ```sql
-> -- Ñêðèïò òàáëèöû [gen].[table_script_output]
+> -- Ð¡ÐºÑ€Ð¸Ð¿Ñ‚ Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ñ‹ [gen].[table_script_output]
 > declare @table_script_output table table
 > (
 >   [Id]    int           not null,
@@ -48,7 +48,7 @@ exec [gen].[table_script] 'Test'
 ```
 > output
 > ```sql
-> -- Ñêðèïò òàáëèöû [Test]
+> -- Ð¡ÐºÑ€Ð¸Ð¿Ñ‚ Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ñ‹ [Test]
 > declare @Test table
 > (
 >   [Id]    int           not null primary key clustered,
