@@ -15,12 +15,12 @@ create   procedure [gen].[table_script]
   @oo_name                        sysname   = null, -- Имя описываемого объекта. Если null, генерится имя как таличная переменная от имени скриптуемого объекта
   @oo_field_name_max_len          int       = 800,  -- Максимальная длина строки названия поля таблицы, до которой дополнять пробелами (null - не ограничена)
   @oo_field_type_name_def_max_len int       = null, -- Максимальная длина строки типа+определения поля таблицы, до которой дополнять пробелами, по умолчанию = select len('varchar(8000) collate ' + (select top (1) [collation_name] from sys.databases with(nolock) where [database_id] = db_id()))
-  @oo_max_data_rows               int       = 1000, -- Максимальное число записей с данными, которые использовать для наполнения таблицы
   @oo_ignore_computed_columns     bit       = 1,    -- Игнорировать ли вычисляемые поля при генерации скрипта возвращаемой табличной структуры
   @oo_column_keys_to_table_keys   bit       = 0,    -- Преображать ли ключи колонок в табличные ключи
   @oo_script                      nvarchar(max) = null out, -- Результирующий скрипт табличной структуры
 --df = data fill--------------------------------------------------------------------------------------------------------------------------------------------------
   @df_type                        char(2)   = 'M',  -- Тип скрипта заполнения данными - I(nsert), M(erge), IM (Insert и закомментированный Merge). При null таблица не заполняется
+  @df_max_data_rows               int       = 1000, -- Максимальное число записей с данными, которые использовать для наполнения таблицы
   @df_comment_field_value_columns bit       = 1,    -- Комментировать ли названиями полей колонки значений в скрипте заполнения данными
   @df_field_value_column_max_len  int       = null, -- Максимальная длина строки значения для колонки (null - не ограничена) в скрипте заполнения данными
   @df_script                      nvarchar(max) = null out, -- Результирующий скрипт заполнения данными
@@ -34,7 +34,8 @@ as
   set nocount on
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
   declare
-    @default_collation_name sysname = (select top (1) [collation_name] from sys.databases with(nolock) where [database_id] = db_id())
+    @default_collation_name sysname = (select top (1) [collation_name] from sys.databases with(nolock) where [database_id] = db_id()),
+    @data_rows_batch_size   int     = 1000 -- Максимальное количество записей в запросах при разбиении данных на батчи
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
   begin try
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -87,6 +88,13 @@ as
         set @object_name_or_query = 'select * into [gen].[table_script_output] from (' + @object_name_or_query + ') [!*rowset*!]' -- Какое-нибудь уникальное имя алиаса :)
  
         begin tran
+
+          if @debug = 1
+          begin
+            print '----DEBUG----'
+            print 'begin tran'
+            exec [gen].[print] @object_name_or_query
+          end
  
           exec(@object_name_or_query)
  
@@ -96,7 +104,7 @@ as
             @oo_type                        = @oo_type,
             @oo_field_name_max_len          = @oo_field_name_max_len,
             @oo_field_type_name_def_max_len = @oo_field_type_name_def_max_len,
-            @oo_max_data_rows               = @oo_max_data_rows,
+            @df_max_data_rows               = @df_max_data_rows,
             @oo_ignore_computed_columns     = @oo_ignore_computed_columns,
             @oo_column_keys_to_table_keys   = @oo_column_keys_to_table_keys,
             @oo_script                      = @oo_script out,
@@ -376,7 +384,7 @@ declare ' + @oo_name + N' table'
     begin
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
       -- 6. Запрос на получение данных для наполнения таблицы:
-      -- ПРИМЕЧАНИЕ: %1001 - каждая тысячепервая запись будет резать наш скрипт на части по 1000 записей
+      -- ПРИМЕЧАНИЕ: %@data_rows_batch_size - каждая запись, номер строки которой кратен data_rows_batch_size, будет резать скрипт на части
       declare
         @has_datetime_col bit
       select
@@ -399,7 +407,7 @@ select
   @script = N''' + IIF(@df_comment_field_value_columns = 1, N'--', N'  ') + N'('' +
     string_agg
     (
-      ' + iif(@df_type in ('I', 'IM'), N'iif([%1001] = 1, ''<!$%!>)
+      ' + iif(@df_type in ('I', 'IM'), N'iif([%data_rows_batch_begin] = 1, ''<!$%!>)
   ('', N'''') +
        ', N'') +
       string_agg
@@ -416,7 +424,7 @@ select
 from
 (
   select
-    ' + iif(@df_type in ('I', 'IM'), N'[%1001],
+    ' + iif(@df_type in ('I', 'IM'), N'[%data_rows_batch_begin] = lag([%data_rows_batch_begin], 1) over (order by 1/0),
     ', N'') +
         string_agg
         (
@@ -427,7 +435,7 @@ from
   from
   (' + iif(@df_comment_field_value_columns = 1, N'
     select
-      ' + iif(@df_type in ('I', 'IM'), N'[%1001] = cast(null as bit),
+      ' + iif(@df_type in ('I', 'IM'), N'[%data_rows_batch_begin] = cast(null as bit),
       ', N'') +
           string_agg
           (
@@ -442,8 +450,8 @@ from
       '
           ) + N'
     union all', '') + N'
-    select top (@oo_max_data_rows)
-      ' + iif(@df_type in ('I', 'IM'), N'[%1001] = iif(row_number() over (order by 1/0) % 1001 = 0, cast(1 as bit), cast(0 as bit)),
+    select top (@df_max_data_rows)
+      ' + iif(@df_type in ('I', 'IM'), N'[%data_rows_batch_begin] = iif(row_number() over (order by 1/0) % ' + cast(@data_rows_batch_size as nvarchar) + N' = 0, cast(1 as bit), cast(0 as bit)),
       ', N'') +
           string_agg
           (
@@ -508,21 +516,23 @@ from
  
       if @debug = 1
       begin
-        print '----DEBUG----'
+        if @object_name_or_query != '[gen].[table_script_output]'
+          print '----DEBUG----'
+
         print formatmessage('
 declare
   @max_line_length                int,
   @script                         nvarchar(max),
-  @oo_max_data_rows               int = %s,
-  @df_field_value_column_max_len  int = %s', isnull(cast(@oo_max_data_rows as nvarchar), 'null'), isnull(cast(@df_field_value_column_max_len as nvarchar), 'null'))
+  @df_max_data_rows               int = %s,
+  @df_field_value_column_max_len  int = %s', isnull(cast(@df_max_data_rows as nvarchar), 'null'), isnull(cast(@df_field_value_column_max_len as nvarchar), 'null'))
         exec [gen].[print] @script
       end 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
       -- 7. Исполнить запрос и получить данные в виде строки @script:
       exec sys.sp_executesql
         @stmt                           = @script,
-        @params                         = N'@oo_max_data_rows int, @df_field_value_column_max_len int, @script nvarchar(max) out, @max_line_length int out',
-        @oo_max_data_rows               = @oo_max_data_rows,
+        @params                         = N'@df_max_data_rows int, @df_field_value_column_max_len int, @script nvarchar(max) out, @max_line_length int out',
+        @df_max_data_rows               = @df_max_data_rows,
         @df_field_value_column_max_len  = @df_field_value_column_max_len,
         @script                         = @script out,
         @max_line_length                = @max_line_length out;
@@ -530,6 +540,10 @@ declare
       if @debug = 1
       begin
         print formatmessage('--@max_line_length = %d', @max_line_length)
+        
+        if @object_name_or_query = '[gen].[table_script_output]'
+          print 'rollback -- Датасет селектится в физ таблицу, которую затем скриптуем, и тут откатываем транзакцию, в которой была создана эта физ таблица [gen].[table_script_output]'
+
         print '-------------'
       end
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------ 
@@ -564,7 +578,7 @@ when matched then
                 N',
     '
               ) + N';'
-            when mc.[merge_expression] is not null and @df_type = 'IM' and @oo_max_data_rows <= 1000
+            when mc.[merge_expression] is not null and @df_type = 'IM' and @df_max_data_rows <= 1000
               then N'insert ' + @oo_name + N'
   (' + string_agg(quotename([name]), N', ') + N')
 --merge ' + @oo_name + N' d
