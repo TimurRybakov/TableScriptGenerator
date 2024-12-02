@@ -1,7 +1,7 @@
 ﻿/*
 Процедура форматирования текста, полученного из таблиц результатов Microsoft SQL Server Management Studio / csv / буфера обменя при копировании из таблиц Excel;
 
-declare @TextWithTabs nvarchar(max) = N'LEVEL' + nchar(9) + 'SCNAME' + nchar(9) + 'SOCRNAME' + nchar(9) + 'KOD_T_ST
+declare @text_with_tabs nvarchar(max) = N'LEVEL' + nchar(9) + 'SCNAME' + nchar(9) + 'SOCRNAME' + nchar(9) + 'KOD_T_ST
 1' + nchar(9) + 'АО' + nchar(9) + 'Автономный округ' + nchar(9) + '101
 1' + nchar(9) + 'Аобл' + nchar(9) + 'Автономная область' + nchar(9) + '102
 1' + nchar(9) + 'г' + nchar(9) + 'Город' + nchar(9) + '103
@@ -15,7 +15,7 @@ declare @TextWithTabs nvarchar(max) = N'LEVEL' + nchar(9) + 'SCNAME' + nchar(9) 
 2' + nchar(9) + 'р-н' + nchar(9) + 'Район' + nchar(9) + '201
 2' + nchar(9) + 'тер' + nchar(9) + 'Территория' + nchar(9) + '203'
 
-EXEC [gen].[text_to_table] @TextWithTabs
+EXEC [gen].[text_to_table] @text_with_tabs
 
 EXEC [gen].[text_to_table]
 '46 174,50	500,00
