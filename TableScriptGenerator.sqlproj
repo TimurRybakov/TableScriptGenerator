@@ -69,6 +69,7 @@
     <Build Include="gen\Stored Procedures\print.sql" />
     <Build Include="gen\Stored Procedures\table_script.sql" />
     <Build Include="Security\gen.sql" />
+    <Build Include="gen\Stored Procedures\text_to_table.sql" />
   </ItemGroup>
   <ItemGroup>
     <ArtifactReference Include="$(DacPacRootPath)\Extensions\Microsoft\SQLDB\Extensions\SqlServer\160\SqlSchemas\master.dacpac">
