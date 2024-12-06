@@ -97,10 +97,9 @@ begin
   declare @skip_count int;
 
   -- normalise line end characters.
-  set @msg = replace(@msg, nchar(13) + nchar(10), '@#$');
-  set @msg = replace(@msg, nchar(10) + nchar(13), '@#$');
+  set @msg = replace(@msg, nchar(13) + nchar(10), nchar(10));
+  set @msg = replace(@msg, nchar(10) + nchar(13), nchar(10));
   set @msg = replace(@msg, nchar(13), nchar(10));
-  set @msg = replace(@msg, '@#$', nchar(10));
 
   -- store length of the normalised string.
   set @msg_len = len(@msg);
