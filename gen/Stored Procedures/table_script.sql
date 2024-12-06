@@ -104,14 +104,14 @@ as
             @oo_type                        = @oo_type,
             @oo_field_name_max_len          = @oo_field_name_max_len,
             @oo_field_type_name_def_max_len = @oo_field_type_name_def_max_len,
-            @df_max_data_rows               = @df_max_data_rows,
             @oo_ignore_computed_columns     = @oo_ignore_computed_columns,
             @oo_column_keys_to_table_keys   = @oo_column_keys_to_table_keys,
             @oo_script                      = @oo_script out,
 
+            @df_type                        = @df_type,
+            @df_max_data_rows               = @df_max_data_rows,
             @df_comment_field_value_columns = @df_comment_field_value_columns,
             @df_field_value_column_max_len  = @df_field_value_column_max_len,
-            @df_type                        = @df_type,
             @df_script                      = @df_script out,
             
             @print_output                   = @print_output,
