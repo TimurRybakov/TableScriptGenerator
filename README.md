@@ -1,3 +1,5 @@
+![MicrosoftSQLServer](https://img.shields.io/badge/Microsoft%20SQL%20Server-CC2927?style=for-the-badge&logo=microsoft%20sql%20server&logoColor=white)
+
 # TableScriptGenerator
 
 A procedure [gen].[table_script] with subroutines to generate scripts of table variable declaration upon tables, views, table functions and some select statements for the current database. Data fill may or may not be included depending on @df_type parameter value (included by default).
